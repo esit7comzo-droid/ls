@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPS Market + E톡</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<style>
+/* 🔹 전체 배경 */
+body { 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  margin:0; 
+  background: linear-gradient(120deg,#f0f0f0,#e0e0e0); 
+  color:#333; 
+}
+/* 🔹 헤더 */
+header { 
+  background: linear-gradient(90deg, #4CAF50, #66BB6A); 
+  color:white; 
+  padding:2rem; 
+  text-align:center; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2); 
+  border-bottom:3px solid #2e7d32; 
+  font-size:2rem; 
+  letter-spacing:2px; 
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.3); 
+}
+/* 🔹 컨테이너 */
+.container { 
+  padding:2rem; 
+  max-width:1200px; 
+  margin:auto; 
+}
+/* 🔹 상품 카드 */
+.product { 
+  background:white; 
+  padding:1rem; 
+  margin:1rem; 
+  display:inline-block; 
+  width:220px; 
+  text-align:center; 
+  border-radius:16px; 
+  box-shadow:0 4px 10px rgba(0,0,0,0.2); 
+  transition: transform 0.3s, box-shadow 0.3s; 
+}
+.product:hover { 
+  transform: translateY(-5px) scale(1.05); 
+  box-shadow:0 8px 20px rgba(0,0,0,0.3); 
+}
+/* 🔹 상품 이미지 */
+.product img { 
+  width:100%; 
+  border-radius:12px; 
+  border:2px solid #4CAF50; 
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.1); 
+}
+/* 🔹 버튼 */
+button { 
+  margin-top:0.5rem; 
+  background: linear-gradient(90deg,#4CAF50,#66BB6A); 
+  color:white; 
+  border:none; 
+  padding:0.6rem 1.2rem; 
+  border-radius:12px; 
+  cursor:pointer; 
+  font-weight:bold; 
+  letter-spacing:1px; 
+  box-shadow:0 4px 8px rgba(0,0,0,0.2); 
+  transition: all 0.3s; 
+}
+button:hover { 
+  background: linear-gradient(90deg,#66BB6A,#4CAF50); 
+  transform: scale(1.05); 
+  box-shadow:0 6px 12px rgba(0,0,0,0.3); 
+}
+/* 🔹 입력창 */
+input { 
+  margin:0.3rem; 
+  padding:0.6rem; 
+  border-radius:8px; 
+  border:2px solid #ccc; 
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); 
+  transition: border 0.3s, box-shadow 0.3s; 
+}
+input:focus { 
+  border:2px solid #4CAF50; 
+  box-shadow:0 0 6px #4CAF50; 
+  outline:none; 
+}
+/* 🔹 채팅창 */
+.chat-container { 
+  border:2px solid #4CAF50; 
+  border-radius:16px; 
+  background:white; 
+  width:100%; 
+  max-width:600px; 
+  padding:1rem; 
+  margin:2rem auto; 
+  box-shadow:0 4px 12px rgba(0,0,0,0.2); 
+  display:flex; 
+  flex-direction:column; 
+  max-height:400px; 
+  overflow-y:auto; 
+}
+.chat-message { 
+  padding:0.5rem 1rem; 
+  margin:0.3rem 0; 
+  border-radius:12px; 
+  max-width:70%; 
+  word-wrap:break-word; 
+  box-shadow:0 2px 4px rgba(0,0,0,0.1); 
+  animation: fadeIn 0.3s ease-in; 
+}
+.chat-message.user { 
+  background:#4CAF50; 
+  color:white; 
+  align-self:flex-end; 
+}
+.chat-message.partner { 
+  background:#E0E0E0; 
+  color:#333; 
+  align-self:flex-start; 
+}
+@keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+/* 🔹 채팅 입력창 */
+.chat-input { 
+  display:flex; 
+  margin-top:0.5rem; 
+}
+.chat-input input { 
+  flex:1; 
+}
+</style>
+</head>
+<body>
+
+<header>🔥 EPS Market + E톡 🔥</header>
+
+<div class="container" id="authContainer">
+  <h2>로그인 / 회원가입</h2>
+  <input type="email" id="email" placeholder="이메일">
+  <input type="password" id="password" placeholder="비밀번호">
+  <button id="signupBtn">회원가입</button>
+  <button id="loginBtn">로그인</button>
+</div>
+
+<div class="container" id="storeContainer" style="display:none;">
+  <h2>상품 목록</h2>
+  <div id="products"></div>
+
+  <h3>상품 추가</h3>
+  <input type="text" id="productName" placeholder="상품명">
+  <input type="number" id="productPrice" placeholder="가격">
+  <input type="text" id="productImage" placeholder="이미지 URL">
+  <button id="addProductBtn">추가</button>
+
+  <h3>내 코인: <span id="myCoin">0</span></h3>
+  <button id="logoutBtn">로그아웃</button>
+
+  <div id="chatSection"></div>
+</div>
+
+<script>
+  // 🔹 Firebase 설정 (제공해주신 값 적용)
+  const firebaseConfig = {
+    apiKey: "AIzaSyAus-wBYUVjjzGb1XnBhjKObDw2t_-C_98",
+    authDomain: "eps-market.firebaseapp.com",
+    projectId: "eps-market",
+    storageBucket: "eps-market.firebasestorage.app",
+    messagingSenderId: "974829100466",
+    appId: "1:974829100466:web:98cf87f84f0b7100b818ab"
+  };
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  const authContainer = document.getElementById("authContainer");
+  const storeContainer = document.getElementById("storeContainer");
+  const productsDiv = document.getElementById("products");
+  const myCoinSpan = document.getElementById("myCoin");
+  const chatSection = document.getElementById("chatSection");
+
+  let currentUser = null;
+
+  // 🔹 회원가입
+  document.getElementById("signupBtn").addEventListener("click", async ()=>{
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    if(!email||!password) return alert("이메일/비밀번호 입력");
+    const query = await db.collection("users").where("email","==",email).get();
+    if(!query.empty) return alert("이미 존재하는 이메일");
+    const userRef = await db.collection("users").add({email,password,createdAt:new Date()});
+    await db.collection("coin").doc(userRef.id).set({balance:10000});
+    alert("회원가입 완료! 로그인해주세요");
+  });
+
+  // 🔹 로그인
+  document.getElementById("loginBtn").addEventListener("click", async ()=>{
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const query = await db.collection("users").where("email","==",email).where("password","==",password).get();
+    if(query.empty) return alert("로그인 실패");
+    currentUser = {id: query.docs[0].id, email};
+    authContainer.style.display="none";
+    storeContainer.style.display="block";
+    loadCoin();
+    loadProducts();
+  });
+
+  // 🔹 로그아웃
+  document.getElementById("logoutBtn").addEventListener("click", ()=>{
+    currentUser=null;
+    authContainer.style.display="block";
+    storeContainer.style.display="none";
+    productsDiv.innerHTML="";
+    chatSection.innerHTML="";
+  });
+
+  // 🔹 코인 불러오기
+  async function loadCoin(){
+    const doc = await db.collection("coin").doc(currentUser.id).get();
+    myCoinSpan.textContent=doc.exists?doc.data().balance:0;
+  }
+
+  // 🔹 상품 불러오기
+  async function loadProducts(){
+    productsDiv.innerHTML="";
+    const snapshot = await db.collection("products").get();
+    snapshot.forEach(doc=>{
+      const product = doc.data();
+      const div = document.createElement("div");
+      div.className="product";
+      div.innerHTML=`
+        <img src="${product.image}" alt="${product.name}">
+        <h3>${product.name}</h3>
+        <p>₩${product.price}</p>
+        <button onclick="buyProduct('${doc.id}',${product.price},'${product.ownerId}')">구매 / E톡</button>
+      `;
+      productsDiv.appendChild(div);
+    });
+  }
+
+  // 🔹 상품 추가
+  document.getElementById("addProductBtn").addEventListener("click", async ()=>{
+    const name=document.getElementById("productName").value;
+    const price=Number(document.getElementById("productPrice").value);
+    const image=document.getElementById("productImage").value;
+    if(!name||!price||!image) return alert("모든 항목 입력");
+    await db.collection("products").add({name,price,image,ownerId:currentUser.id});
+    loadProducts();
+  });
+
+  // 🔹 구매 + E톡
+  async function buyProduct(productId,price,ownerId){
+    if(ownerId===currentUser.id) return alert("자기 상품은 구매 불가");
+    const coinRef=db.collection("coin").doc(currentUser.id);
+    const doc = await coinRef.get();
+    const balance=doc.data()?.balance||0;
+    if(balance<price) return alert("잔액 부족");
+    await coinRef.update({balance:balance-price});
+    await db.collection("buy").add({userId:currentUser.id,productId,timestamp:new Date()});
+    alert("구매 완료!");
+    loadCoin();
+    openChat(ownerId,productId);
+  }
+
+  // 🔹 1:1 채팅
+  async function openChat(partnerId,productId){
+    chatSection.innerHTML="";
+    const chatId=[currentUser.id,partnerId,productId].sort().join("_");
+    const chatRef=db.collection("chats").doc(chatId);
+    const chatDoc = await chatRef.get();
+    if(!chatDoc.exists) await chatRef.set({participants:[currentUser.id,partnerId],productId,messages:[]});
+    const chatContainer=document.createElement("div");
+    chatContainer.className="chat-container";
+    const chatInputDiv=document.createElement("div");
+    chatInputDiv.className="chat-input";
+    const inputEl=document.createElement("input");
+    inputEl.placeholder="메시지 입력...";
+    const sendBtn=document.createElement("button");
+    sendBtn.textContent="전송";
+    chatInputDiv.append(inputEl,sendBtn);
+    chatSection.append(chatContainer,chatInputDiv);
+
+    chatRef.onSnapshot(doc=>{
+      chatContainer.innerHTML="";
+      const msgs=doc.data().messages||[];
+      msgs.forEach(msg=>{
+        const msgDiv=document.createElement("div");
+        msgDiv.className="chat-message "+(msg.sender===currentUser.id?"user":"partner");
+        msgDiv.textContent=msg.text;
+        chatContainer.appendChild(msgDiv);
+        chatContainer.scrollTop=chatContainer.scrollHeight;
+      });
+    });
+
+    sendBtn.onclick=async ()=>{
+      const text=inputEl.value.trim();
+      if(!text) return;
+      await chatRef.update({messages:firebase.firestore.FieldValue.arrayUnion({sender:currentUser.id,text,timestamp:new Date()})});
+      inputEl.value="";
+    }
+  }
+</script>
+
+</body>
+</html>
